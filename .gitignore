@@ -67,5 +67,6 @@ datasets
 source/whole_body_tracking/
 **/source/Datasets/*
 
-# Generated Docker dev override (runtime file, not committed)
+# Generated Docker dev overrides (runtime files, not committed)
 docker/.docker-compose.dev.override.yaml
+docker/.docker-compose.ssh-agent.yaml
