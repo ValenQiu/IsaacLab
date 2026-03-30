@@ -63,3 +63,9 @@ _build
 
 # Teleop Recorded Dataset
 datasets
+
+source/whole_body_tracking/
+**/source/Datasets/*
+
+# Generated Docker dev override (runtime file, not committed)
+docker/.docker-compose.dev.override.yaml
