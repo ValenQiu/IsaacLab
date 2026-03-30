@@ -1,0 +1,51 @@
+---
+description: Core constraints for the IsaacLab v2.1.0 + whole_body_tracking development environment. Always apply when modifying source/, docker/, or dependency files.
+alwaysApply: true
+---
+
+# Project Constraints
+
+## Version lock — DO NOT change without explicit approval
+
+| Component | Locked version | Why |
+|---|---|---|
+| IsaacLab | **v2.1.0** (`21f7136325`) | whole_body_tracking targets this exact release |
+| Isaac Sim | **4.5.0** | Image tag in `.env.base`; all ABI assumptions are based on this |
+| numpy | **==1.26.4** | pip_prebundle scipy 1.10.1 compiled for numpy 1.x (dtype 96 bytes); numpy 2.x breaks ABI |
+| opencv-python | **==4.9.0.80** | ≥4.10 requires numpy≥2, triggering the numpy upgrade chain |
+| torch | **==2.5.1** | Pinned in `source/isaaclab/setup.py`; do not float |
+| Python | **3.10** | Bundled in Isaac Sim kit; no alternative |
+
+## Dependency rules
+
+- **Never add or change a `pip install` step without verifying it does not upgrade numpy past 1.26.x or opencv-python past 4.9.x.**
+- After any `pip install` that touches packages depending on numpy, always append:
+  `pip install numpy==1.26.4 opencv-python==4.9.0.80`
+- Do not install a pip-managed `scipy` — the bundled `scipy 1.10.1` in `pip_prebundle` must be used as-is.
+- `source/isaaclab/setup.py` numpy constraint must remain `>=1.19.5,<1.27.0`.
+
+## Repository structure rules
+
+- `source/whole_body_tracking/` is **gitignored** — managed via `git clone` inside the container, not committed here.
+- The installable Python package for whole_body_tracking is at `source/whole_body_tracking/source/whole_body_tracking/` (double-layer layout). Always `pip install -e` that inner path, not the git root.
+- Do not add a `[project]` section to the git-root `pyproject.toml` of whole_body_tracking; it is a tool-config-only file.
+
+## Docker rules
+
+- `docker/run.sh` must remain a **thin wrapper** around `container.py`. X11 forwarding logic (xauth / MIT-MAGIC-COOKIE) lives in `container.py` + `x11.yaml` — do not replicate it.
+- `docker/setup_workspace.sh` runs inside the container on every `start`. It must be idempotent (safe to run multiple times).
+- SSH agent forwarding is handled via a **dynamically generated** `.docker-compose.ssh-agent.yaml` that is gitignored. Never commit it.
+- `docker/.container.cfg` is runtime state for X11 config — gitignored, never commit.
+
+## Code quality rules
+
+- Follow the existing isaaclab code style (black, flake8, isort) — pre-commit hooks are configured.
+- Do not add comments that merely restate what the code does. Comments should explain non-obvious intent or constraints.
+- Do not commit binary files, model checkpoints (`.pt`), datasets, or wandb run directories.
+
+## Upgrade policy
+
+- **IsaacLab major/minor version** (e.g., 2.x → 3.x or 2.1 → 2.2): Prohibited without full dependency re-validation.
+- **Isaac Sim version**: Changing the base image version requires re-testing all numpy/scipy/opencv ABI assumptions from scratch.
+- **whole_body_tracking**: Changes must remain compatible with IsaacLab v2.1.0 API (`isaaclab.envs`, `isaaclab_tasks`, `rsl_rl`).
+- **Patch-level bumps** (e.g., isaaclab 2.1.0 → 2.1.1): Allowed only if the upstream changelog confirms no breaking API changes.

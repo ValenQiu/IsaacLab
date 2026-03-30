@@ -11,6 +11,8 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 ISAACLAB_PATH="${ISAACLAB_PATH:-/workspace/isaaclab}"
 WBT_DIR="${ISAACLAB_PATH}/source/whole_body_tracking"
+# The installable Python package lives one level deeper (same layout as IsaacLab itself)
+WBT_PKG_DIR="${WBT_DIR}/source/whole_body_tracking"
 WBT_REPO="git@github.com:ValenQiu/whole_body_tracking.git"
 PYTHON="${ISAACLAB_PATH}/_isaac_sim/python.sh"
 
@@ -61,7 +63,14 @@ fi
 # ---------------------------------------------------------------------------
 if [ -f "$PYTHON" ]; then
     info "Installing whole_body_tracking with pip (editable mode)..."
-    "$PYTHON" -m pip install --quiet -e "$WBT_DIR"
+    "$PYTHON" -m pip install --quiet -e "$WBT_PKG_DIR"
+
+    # Isaac Sim 4.5.0 bundles scipy 1.10.1 compiled against numpy 1.x
+    # (numpy>=1.19.5,<1.27.0). Some dependencies may silently upgrade numpy
+    # to 2.x which breaks the scipy ABI. Pin it back after every install.
+    # opencv-python>=4.10 also requires numpy>=2, so pin it to 4.9.x.
+    info "Pinning numpy==1.26.4 and opencv-python==4.9.0.80 ..."
+    "$PYTHON" -m pip install --quiet "numpy==1.26.4" "opencv-python==4.9.0.80"
     info "pip install done."
 else
     warn "Python not found at $PYTHON — skipping pip install"
