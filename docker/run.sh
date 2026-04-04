@@ -101,20 +101,36 @@ cmd_start() {
     fi
 
     # Delegate to container.py (handles X11, volumes, profiles, etc.)
-    python3 "$CONTAINER_PY" start "${EXTRA_ARGS[@]}" "$@"
+    # Use || true so a non-zero exit (e.g. already-running container) doesn't
+    # abort the script before workspace setup runs.
+    python3 "$CONTAINER_PY" start "${EXTRA_ARGS[@]}" "$@" || true
 
     # Run workspace initialisation inside the running container
     section "Running workspace setup (whole_body_tracking)"
-    docker exec -i "$CONTAINER_NAME" bash < "$SCRIPT_DIR/setup_workspace.sh"
-
-    section "Container ready"
-    info "Use './docker/run.sh enter' to open a shell."
-    info "Use './docker/run.sh stop'  to shut it down."
+    _run_setup
 }
 
 cmd_enter() {
+    # Always run setup before entering so that even if the container was started
+    # via container.py directly, deps are correct.
+    section "Running workspace setup before entering"
+    _run_setup
+
     section "Entering container  ($CONTAINER_NAME)"
     python3 "$CONTAINER_PY" enter "$@"
+}
+
+# ---------------------------------------------------------------------------
+# Shared: run setup_workspace.sh inside the container
+# ---------------------------------------------------------------------------
+_run_setup() {
+    if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^${CONTAINER_NAME}$"; then
+        warn "Container '${CONTAINER_NAME}' is not running — skipping workspace setup"
+        return
+    fi
+    docker exec -i "$CONTAINER_NAME" bash < "$SCRIPT_DIR/setup_workspace.sh" \
+        && info "Workspace setup complete." \
+        || warn "Workspace setup returned errors — check output above"
 }
 
 cmd_stop() {

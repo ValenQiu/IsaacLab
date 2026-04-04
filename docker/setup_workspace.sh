@@ -4,7 +4,8 @@
 # Clones the whole_body_tracking repo into source/ (which is bind-mounted to the host)
 # and installs it with pip. Safe to run multiple times (idempotent).
 
-set -euo pipefail
+# Do NOT use set -e here: if pip install fails partway through we still want
+# the numpy/opencv pin step to run. Each critical step checks its own exit code.
 
 # ---------------------------------------------------------------------------
 # Config
@@ -14,6 +15,7 @@ WBT_DIR="${ISAACLAB_PATH}/source/whole_body_tracking"
 # The installable Python package lives one level deeper (same layout as IsaacLab itself)
 WBT_PKG_DIR="${WBT_DIR}/source/whole_body_tracking"
 WBT_REPO="git@github.com:ValenQiu/whole_body_tracking.git"
+WBT_BRANCH="valenqiu_dev"
 PYTHON="${ISAACLAB_PATH}/_isaac_sim/python.sh"
 
 # ---------------------------------------------------------------------------
@@ -46,13 +48,16 @@ else
 
     if [ -n "${SSH_AUTH_SOCK:-}" ] && [ -S "$SSH_AUTH_SOCK" ]; then
         info "SSH agent forwarding detected (SSH_AUTH_SOCK=$SSH_AUTH_SOCK)"
-        GIT_SSH_COMMAND="$GIT_SSH_CMD" git clone "$WBT_REPO" "$WBT_DIR"
+        GIT_SSH_COMMAND="$GIT_SSH_CMD" git clone -b "$WBT_BRANCH" "$WBT_REPO" "$WBT_DIR" || {
+            error "Git clone failed (with SSH agent)."
+            return 1
+        }
     else
         warn "SSH_AUTH_SOCK not available — attempting clone without agent (may fail for private repos)"
-        GIT_SSH_COMMAND="$GIT_SSH_CMD" git clone "$WBT_REPO" "$WBT_DIR" || {
+        GIT_SSH_COMMAND="$GIT_SSH_CMD" git clone -b "$WBT_BRANCH" "$WBT_REPO" "$WBT_DIR" || {
             error "Git clone failed."
             error "Make sure SSH agent forwarding is enabled: start the container with './docker/run.sh start'"
-            exit 1
+            return 1
         }
     fi
     info "Clone complete."

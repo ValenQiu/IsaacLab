@@ -169,8 +169,14 @@ def create_x11_tmpfile(tmpfile: Path | None = None, tmpdir: Path | None = None) 
         tmp_xauth = tmpfile
 
     # Derive current MIT-MAGIC-COOKIE and make it universally addressable
+    display = os.environ.get("DISPLAY")
+    if not display:
+        raise RuntimeError(
+            "$DISPLAY is not set. Cannot create xauth cookie. "
+            "Ensure X11 forwarding is configured or disable it in '.container.cfg'."
+        )
     xauth_cookie = subprocess.run(
-        ["xauth", "nlist", os.environ["DISPLAY"]], capture_output=True, text=True, check=True
+        ["xauth", "nlist", display], capture_output=True, text=True, check=True
     ).stdout.replace("ffff", "")
 
     # Merge the new cookie into the create .tmp file
@@ -211,6 +217,9 @@ def x11_refresh(statefile: StateFile):
 
     # if the file exists, delete it and create a new one
     if tmp_xauth_value is not None and Path(tmp_xauth_value).exists():
+        if not os.environ.get("DISPLAY"):
+            print("[WARNING] $DISPLAY is not set. Skipping xauth refresh.")
+            return
         # remove the file and create a new one
         Path(tmp_xauth_value).unlink()
         create_x11_tmpfile(tmpfile=Path(tmp_xauth_value))
