@@ -1,25 +1,83 @@
-# ignore .git related folders
-.git/
-.github/
-.gitignore
-# ignore docs
-docs/
-# copy in licenses folder to the container
-!docs/licenses/
-# ignore logs
-**/logs/
-**/runs/
+# Auto-generated from .gitignore - DO NOT EDIT MANUALLY
+# Run build.sh to regenerate
+
+# C++
+**/cmake-build*/
+**/build*/
+**/*.so
+**/*.log*
+
+# Omniverse
+**/*.dmp
+**/.thumbs
+
+# No USD files allowed in the repo
+**/*.usd
+**/*.usda
+**/*.usdc
+**/*.usdz
+
+# Python
+.DS_Store
+**/*.egg-info/
+**/__pycache__/
+**/.pytest_cache/
+**/*.pyc
+**/*.pb
+
+# Docker/Singularity
+**/*.sif
+docker/cluster/exports/
+docker/.container.cfg
+
+# IDE
+**/.idea/
+**/.vscode/
+# Don't ignore the top-level .vscode directory as it is
+# used to configure VS Code settings
+!.vscode
+
+# Outputs
 **/output/*
 **/outputs/*
 **/videos/*
+**/wandb/*
+**/.neptune/*
+docker/artifacts/
 *.tmp
-# ignore docker
-docker/cluster/exports/
-docker/.container.cfg
-# ignore recordings
-recordings/
-# ignore __pycache__
-**/__pycache__/
-**/*.egg-info/
-# ignore isaac sim symlink
-_isaac_sim?
+
+# Doc Outputs
+**/docs/_build/*
+**/generated/*
+
+# Isaac-Sim packman
+_isaac_sim*
+_repo
+_build
+.lastformat
+
+# RL-Games
+**/runs/*
+**/logs/*
+**/recordings/*
+
+# Pre-Trained Checkpoints
+/.pretrained_checkpoints/
+
+# Teleop Recorded Dataset
+datasets
+
+source/whole_body_tracking/
+**/source/Datasets/*
+
+# Generated Docker dev overrides (runtime files, not committed)
+docker/.docker-compose.dev.override.yaml
+docker/.docker-compose.ssh-agent.yaml
+
+# Docker-specific ignores
+.git/
+.gitignore
+.vscode/
+.idea/
+*.swp
+*.swo
