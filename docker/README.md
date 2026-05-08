@@ -59,7 +59,8 @@
 ### X11 图形转发
 
 由 `container.py` 与 `x11.yaml` 原生支持，使用 `xauth` + MIT-MAGIC-COOKIE 方案。
-首次执行 `start` 时会询问是否启用，选择会保存到 `docker/.container.cfg`，后续自动沿用。
+通过 `./docker/run.sh start` 启动时，脚本会在 `.container.cfg` 未配置该项时自动写入 `X11_FORWARDING_ENABLED=1`（默认开启）。
+若你手动改为 `0`，脚本会尊重该显式配置，不会强行覆盖。
 
 > 若需修改，直接编辑 `.container.cfg` 中的 `X11_FORWARDING_ENABLED` 字段（`1` 启用，`0` 禁用）。
 
@@ -101,7 +102,8 @@ Isaac Sim 的缓存、日志等通过 Docker named volume 持久化，容器重�
    git@github.com:ValenQiu/whole_body_tracking.git
    ```
    clone 目标在 bind mount 路径内，**结果同时出现在宿主机的 `source/whole_body_tracking/`**，停止容器不会丢失。
-3. 执行 `pip install -e source/whole_body_tracking`，恢复 editable install 注册（容器重建后 pip 注册会丢失，此步骤自动补回）。
+3. 先检查并补齐 `unitree_description` 模型资产（缺失时自动下载并解压）。
+4. 执行 `pip install -e source/whole_body_tracking`，恢复 editable install 注册（容器重建后 pip 注册会丢失，此步骤自动补回）。
 
 > `source/whole_body_tracking/` 已加入 `.gitignore`，不会被提交到 IsaacLab 仓库。
 

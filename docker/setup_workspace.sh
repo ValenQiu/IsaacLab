@@ -17,6 +17,8 @@ WBT_PKG_DIR="${WBT_DIR}/source/whole_body_tracking"
 WBT_REPO="git@github.com:ValenQiu/whole_body_tracking.git"
 WBT_BRANCH="valenqiu_dev"
 PYTHON="${ISAACLAB_PATH}/_isaac_sim/python.sh"
+UNITREE_ASSET_URL="https://storage.googleapis.com/qiayuanl_robot_descriptions/unitree_description.tar.gz"
+UNITREE_URDF_PATH="${WBT_PKG_DIR}/whole_body_tracking/assets/unitree_description/urdf/g1/main.urdf"
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -25,6 +27,37 @@ GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
 info()  { echo -e "${GREEN}[setup]${NC} $*"; }
 warn()  { echo -e "${YELLOW}[setup]${NC} $*"; }
 error() { echo -e "${RED}[setup]${NC} $*" >&2; }
+
+download_unitree_assets_if_needed() {
+    if [ -f "$UNITREE_URDF_PATH" ]; then
+        info "unitree_description already present — skipping download"
+        return 0
+    fi
+
+    info "unitree_description missing, downloading required model assets ..."
+    local tmp_tar
+    tmp_tar="$(mktemp /tmp/unitree_description.XXXXXX.tar.gz)"
+
+    if ! curl -L --fail -o "$tmp_tar" "$UNITREE_ASSET_URL"; then
+        error "Failed to download unitree_description from: $UNITREE_ASSET_URL"
+        rm -f "$tmp_tar"
+        return 1
+    fi
+
+    mkdir -p "${WBT_PKG_DIR}/whole_body_tracking/assets"
+    if ! tar -xzf "$tmp_tar" -C "${WBT_PKG_DIR}/whole_body_tracking/assets/"; then
+        error "Failed to extract unitree_description archive"
+        rm -f "$tmp_tar"
+        return 1
+    fi
+
+    rm -f "$tmp_tar"
+    if [ ! -f "$UNITREE_URDF_PATH" ]; then
+        error "unitree_description download finished but expected URDF is still missing"
+        return 1
+    fi
+    info "unitree_description model assets ready."
+}
 
 # ---------------------------------------------------------------------------
 # 1. Trust GitHub's SSH host key (idempotent)
@@ -64,7 +97,15 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 3. Install whole_body_tracking (always run; fast if already installed)
+# 3. Download required model/assets first (README sequence safeguard)
+# ---------------------------------------------------------------------------
+if ! download_unitree_assets_if_needed; then
+    error "Model/assets bootstrap failed. Stop setup to avoid partial environment."
+    exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# 4. Install whole_body_tracking (always run; fast if already installed)
 # ---------------------------------------------------------------------------
 if [ -f "$PYTHON" ]; then
     info "Installing whole_body_tracking with pip (editable mode)..."

@@ -44,6 +44,7 @@ section() { echo -e "\n${CYAN}${BOLD}==> $*${NC}"; }
 CONTAINER_PY="$SCRIPT_DIR/container.py"
 SSH_OVERRIDE="$SCRIPT_DIR/.docker-compose.ssh-agent.yaml"
 CONTAINER_NAME="isaac-lab-base"
+CONTAINER_CFG="$SCRIPT_DIR/.container.cfg"
 
 # Load DOCKER_ISAACLAB_PATH from .env.base for use in exec commands
 ENV_FILE="$SCRIPT_DIR/.env.base"
@@ -55,6 +56,26 @@ set -a; source "$ENV_FILE"; set +a
 # ---------------------------------------------------------------------------
 cleanup() { rm -f "$SSH_OVERRIDE"; }
 trap cleanup EXIT
+
+ensure_x11_default_enabled() {
+    # Keep a "default-on" behavior for run.sh without overriding explicit user choice.
+    python3 - "$CONTAINER_CFG" <<'PY'
+import configparser
+import pathlib
+import sys
+
+cfg_path = pathlib.Path(sys.argv[1])
+cfg = configparser.ConfigParser()
+cfg.read(cfg_path)
+if "X11" not in cfg:
+    cfg["X11"] = {}
+if "x11_forwarding_enabled" not in cfg["X11"]:
+    cfg["X11"]["x11_forwarding_enabled"] = "1"
+    with cfg_path.open("w", encoding="utf-8") as f:
+        cfg.write(f)
+    print("__X11_DEFAULT_SET__")
+PY
+}
 
 generate_ssh_override() {
     if [ -z "${SSH_AUTH_SOCK:-}" ] || [ ! -S "$SSH_AUTH_SOCK" ]; then
@@ -91,6 +112,11 @@ cmd_build() {
 
 cmd_start() {
     section "Starting Isaac Lab container"
+
+    X11_DEFAULT_RESULT="$(ensure_x11_default_enabled)"
+    if [ "$X11_DEFAULT_RESULT" = "__X11_DEFAULT_SET__" ]; then
+        info "X11 forwarding defaulted to enabled for run.sh startup"
+    fi
 
     generate_ssh_override
 
