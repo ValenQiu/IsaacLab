@@ -28,6 +28,9 @@ WBT_BRANCH="${WBT_BRANCH:-fast_bm_training}"
 PY="/isaac-sim/python.sh"
 REMOTE_KERNEL_ENTRYPOINT="/workspace/training_common/remote-kernel-entrypoint.sh"
 SECRET_WANDB_KEY_FILE="${ISAACLAB_SOURCE}/.remote_secrets/wandb_api_key"
+WBT_ASSET_URL="${WBT_ASSET_URL:-https://storage.googleapis.com/qiayuanl_robot_descriptions/unitree_description.tar.gz}"
+WBT_ASSET_DIR="${WBT_PKG_DIR}/whole_body_tracking/assets"
+WBT_URDF_PATH="${WBT_ASSET_DIR}/unitree_description/urdf/g1/main.urdf"
 
 ALIYUN_MIRROR="-i http://mirrors.aliyun.com/pypi/simple --trusted-host mirrors.aliyun.com"
 
@@ -80,7 +83,51 @@ clone_wbt_if_needed() {
     step_done "clone"
 }
 
-# --- Step 4: Editable install + pin deps -----------------------------------
+# --- Step 4: Ensure required model assets ----------------------------------
+ensure_wbt_assets() {
+    step_start "assets"
+    if [[ ! -d "$WBT_PKG_DIR" ]]; then
+        echo "[bootstrap][assets] $WBT_PKG_DIR not found, skip assets bootstrap"
+        step_done "assets"
+        return 1
+    fi
+
+    if [[ -f "$WBT_URDF_PATH" ]]; then
+        echo "[bootstrap][assets] unitree_description already exists, skip"
+        step_done "assets"
+        return 0
+    fi
+
+    mkdir -p "$WBT_ASSET_DIR"
+    local tmp_tar
+    tmp_tar="$(mktemp /tmp/unitree_description.XXXXXX.tar.gz)"
+    echo "[bootstrap][assets] downloading unitree_description from ${WBT_ASSET_URL}"
+    if ! curl -L --fail -o "$tmp_tar" "$WBT_ASSET_URL"; then
+        echo "[bootstrap][assets][ERROR] failed to download asset archive"
+        rm -f "$tmp_tar"
+        step_done "assets"
+        return 1
+    fi
+
+    if ! tar -xzf "$tmp_tar" -C "$WBT_ASSET_DIR"; then
+        echo "[bootstrap][assets][ERROR] failed to extract asset archive"
+        rm -f "$tmp_tar"
+        step_done "assets"
+        return 1
+    fi
+    rm -f "$tmp_tar"
+
+    if [[ ! -f "$WBT_URDF_PATH" ]]; then
+        echo "[bootstrap][assets][ERROR] asset extracted but expected URDF missing: $WBT_URDF_PATH"
+        step_done "assets"
+        return 1
+    fi
+
+    echo "[bootstrap][assets] unitree_description is ready"
+    step_done "assets"
+}
+
+# --- Step 5: Editable install + pin deps -----------------------------------
 install_and_pin() {
     step_start "install"
     if [[ ! -d "$WBT_PKG_DIR" ]]; then
@@ -110,7 +157,7 @@ install_and_pin() {
     step_done "install"
 }
 
-# --- Step 5: W&B auth bootstrap -------------------------------------------
+# --- Step 6: W&B auth bootstrap -------------------------------------------
 ensure_wandb_auth() {
     step_start "wandb-auth"
     local key=""
@@ -144,7 +191,7 @@ PY
     step_done "wandb-auth"
 }
 
-# --- Step 6: Health check --------------------------------------------------
+# --- Step 7: Health check --------------------------------------------------
 health_check() {
     step_start "health"
     if "${PY}" -c "import toml, requests, torch, isaaclab; print('core imports ok')"; then
@@ -165,6 +212,7 @@ health_check() {
 create_isaac_sim_symlink
 add_known_host
 clone_wbt_if_needed   || echo "[bootstrap][WARN] clone step failed, continuing ..."
+ensure_wbt_assets     || echo "[bootstrap][WARN] assets step failed, continuing ..."
 install_and_pin       || echo "[bootstrap][WARN] install/pin step failed, continuing ..."
 ensure_wandb_auth     || echo "[bootstrap][WARN] wandb auth step failed, continuing ..."
 health_check          || echo "[bootstrap][WARN] health check failed, continuing ..."
